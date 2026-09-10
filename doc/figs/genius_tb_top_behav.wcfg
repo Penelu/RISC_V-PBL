@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wave_config>
+   <wave_state>
+   </wave_state>
+   <db_ref_list>
+      <db_ref path="genius_tb_top_behav.wdb" id="1">
+         <top_modules>
+            <top_module name="genius_tb_top" />
+            <top_module name="glbl" />
+         </top_modules>
+      </db_ref>
+   </db_ref_list>
+   <zoom_setting>
+      <ZoomStartTime time="153,692.255 ns"></ZoomStartTime>
+      <ZoomEndTime time="156,284.256 ns"></ZoomEndTime>
+      <Cursor1Time time="12,000.000 ns"></Cursor1Time>
+   </zoom_setting>
+   <column_width_setting>
+      <NameColumnWidth column_width="276"></NameColumnWidth>
+      <ValueColumnWidth column_width="120"></ValueColumnWidth>
+   </column_width_setting>
+   <WVObjectSize size="14" />
+   <wvobject type="logic" fp_name="/genius_tb_top/clk">
+      <obj_property name="ElementShortName">clk</obj_property>
+      <obj_property name="ObjectShortName">clk</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/genius_tb_top/reset">
+      <obj_property name="ElementShortName">reset</obj_property>
+      <obj_property name="ObjectShortName">reset</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/genius_tb_top/sw_power">
+      <obj_property name="ElementShortName">sw_power</obj_property>
+      <obj_property name="ObjectShortName">sw_power</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/genius_tb_top/sw_difficulty">
+      <obj_property name="ElementShortName">sw_difficulty[1:0]</obj_property>
+      <obj_property name="ObjectShortName">sw_difficulty[1:0]</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/genius_tb_top/sw_speed">
+      <obj_property name="ElementShortName">sw_speed</obj_property>
+      <obj_property name="ObjectShortName">sw_speed</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/genius_tb_top/sw_mode">
+      <obj_property name="ElementShortName">sw_mode</obj_property>
+      <obj_property name="ObjectShortName">sw_mode</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/genius_tb_top/btn_start">
+      <obj_property name="ElementShortName">btn_start</obj_property>
+      <obj_property name="ObjectShortName">btn_start</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/genius_tb_top/btn_color">
+      <obj_property name="ElementShortName">btn_color[3:0]</obj_property>
+      <obj_property name="ObjectShortName">btn_color[3:0]</obj_property>
+      <obj_property name="isExpanded"></obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/genius_tb_top/btn_repeat">
+      <obj_property name="ElementShortName">btn_repeat</obj_property>
+      <obj_property name="ObjectShortName">btn_repeat</obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/genius_tb_top/btn_longest">
+      <obj_property name="ElementShortName">btn_longest</obj_property>
+      <obj_property name="ObjectShortName">btn_longest</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/genius_tb_top/led">
+      <obj_property name="ElementShortName">led[3:0]</obj_property>
+      <obj_property name="ObjectShortName">led[3:0]</obj_property>
+      <obj_property name="isExpanded"></obj_property>
+   </wvobject>
+   <wvobject type="logic" fp_name="/genius_tb_top/led_start">
+      <obj_property name="ElementShortName">led_start</obj_property>
+      <obj_property name="ObjectShortName">led_start</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/genius_tb_top/bcd_score">
+      <obj_property name="ElementShortName">bcd_score[11:0]</obj_property>
+      <obj_property name="ObjectShortName">bcd_score[11:0]</obj_property>
+      <obj_property name="isExpanded"></obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/genius_tb_top/CLK_HZ">
+      <obj_property name="ElementShortName">CLK_HZ[31:0]</obj_property>
+      <obj_property name="ObjectShortName">CLK_HZ[31:0]</obj_property>
+   </wvobject>
+</wave_config>
