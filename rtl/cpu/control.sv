@@ -15,12 +15,15 @@ module control
     input  logic [6:0] opcode,
     input  logic [2:0] funct3,
     input  logic       funct7_5,     // instr[30]: picks sub/sra over add/srl
+    input  logic       eq,           // rs1 == rs2
+    input  logic       lt,           // rs1 <  rs2, signed
     output logic       reg_write,    // 1: write the result into rd
     output logic       alu_src,      // 0: ALU b = rs2, 1: ALU b = immediate
     output alu_op_t    alu_op,
     output imm_src_t   imm_src,      // which immediate format to decode
     output logic       mem_write,    // 1: write rs2 into data memory
-    output logic       result_src    // 0: rd gets the ALU, 1: rd gets the memory
+    output logic       result_src,   // 0: rd gets the ALU, 1: rd gets the memory
+    output logic       pc_src        // 0: pc + 4, 1: pc + immediate (branch taken)
 );
 
     always_comb begin
@@ -31,6 +34,7 @@ module control
         imm_src    = IMM_I;
         mem_write  = 1'b0;
         result_src = 1'b0;
+        pc_src     = 1'b0;
 
         case (opcode)
             // ---- register and immediate: addi, andi, xori, srli ----------
@@ -77,6 +81,18 @@ module control
                     imm_src   = IMM_S;
                     mem_write = 1'b1;
                 end
+            end
+
+            // ---- branch: jump to pc + imm when the comparison holds ------
+            OP_BRANCH: begin
+                imm_src = IMM_B;
+                case (funct3)
+                    F3_BEQ:  pc_src =  eq;
+                    F3_BNE:  pc_src = !eq;
+                    F3_BLT:  pc_src =  lt;
+                    F3_BGE:  pc_src = !lt;
+                    default: ;
+                endcase
             end
 
             default: ;

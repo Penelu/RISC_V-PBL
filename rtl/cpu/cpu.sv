@@ -7,8 +7,10 @@
 //   pc -> imem -> control + regfile -> alu -> regfile
 //
 //   alu -> dmem -> regfile               (lw, sw)
+//   pc + imm -> pc                       (taken branch)
 //
-// Stage 3: addi, andi, xori, srli, add, and, xor, lw, sw.
+// Stage 4: addi, andi, xori, srli, add, and, xor, lw, sw,
+//          beq, bne, blt, bge.
 //------------------------------------------------------------------------------
 
 module cpu
@@ -21,9 +23,11 @@ module cpu
 );
 
     // ---- fetch --------------------------------------------------------------
-    logic [31:0] pc_cur, pc_next, instr;
+    logic [31:0] pc_cur, pc_next, pc_target, instr;
+    logic        pc_src;
 
-    assign pc_next = pc_cur + 32'd4; // stage 1: always the next instruction
+    // next instruction, or the branch target when the branch is taken
+    assign pc_next = pc_src ? pc_target : pc_cur + 32'd4;
 
     pc u_pc (
         .clk     (clk),
@@ -52,6 +56,7 @@ module cpu
     assign rs2      = instr[24:20];
 
     logic     reg_write, alu_src, mem_write, result_src;
+    logic     eq, lt;                // branch comparison, made in execute
     alu_op_t  alu_op;
     imm_src_t imm_src;
 
@@ -59,12 +64,15 @@ module cpu
         .opcode     (opcode),
         .funct3     (funct3),
         .funct7_5   (funct7_5),
+        .eq         (eq),
+        .lt         (lt),
         .reg_write  (reg_write),
         .alu_src    (alu_src),
         .alu_op     (alu_op),
         .imm_src    (imm_src),
         .mem_write  (mem_write),
-        .result_src (result_src)
+        .result_src (result_src),
+        .pc_src     (pc_src)
     );
 
     // immediate, sign extended from instr[31] in every format
@@ -72,6 +80,7 @@ module cpu
         case (imm_src)
             IMM_I:   imm = {{20{instr[31]}}, instr[31:20]};
             IMM_S:   imm = {{20{instr[31]}}, instr[31:25], instr[11:7]};
+            IMM_B:   imm = {{20{instr[31]}}, instr[7], instr[30:25], instr[11:8], 1'b0};
             default: imm = 32'd0;
         endcase
     end
@@ -101,6 +110,11 @@ module cpu
         .op (alu_op),
         .y  (alu_y)
     );
+
+    // ---- branch -------------------------------------------------------------
+    assign eq        = (rs1_val == rs2_val);
+    assign lt        = ($signed(rs1_val) < $signed(rs2_val));
+    assign pc_target = pc_cur + imm;
 
     // ---- memory -------------------------------------------------------------
     logic [31:0] mem_rd;
