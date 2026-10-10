@@ -10,9 +10,12 @@ package cpu_pkg;
     // ---- opcodes (instr[6:0]) ----------------------------------------------
     localparam logic [6:0] OP_IMM = 7'b0010011;   // addi, andi, xori, srli
     localparam logic [6:0] OP_REG = 7'b0110011;   // add, and, xor
+    localparam logic [6:0] OP_LOAD  = 7'b0000011; // lw
+    localparam logic [6:0] OP_STORE = 7'b0100011; // sw
 
     // ---- funct3 (instr[14:12]) ---------------------------------------------
     localparam logic [2:0] F3_ADD = 3'b000;
+    localparam logic [2:0] F3_W   = 3'b010;       // lw, sw: whole word
     localparam logic [2:0] F3_XOR = 3'b100;
     localparam logic [2:0] F3_SRL = 3'b101;
     localparam logic [2:0] F3_AND = 3'b111;
@@ -24,5 +27,13 @@ package cpu_pkg;
         ALU_XOR,
         ALU_SRL
     } alu_op_t;
+
+    // ---- immediate formats --------------------------------------------------
+    // Each format keeps the immediate bits in a different place of the
+    // instruction; later stages add B, J and U.
+    typedef enum logic [2:0] {
+        IMM_I,                       // addi, lw: instr[31:20]
+        IMM_S                        // sw: instr[31:25] + instr[11:7]
+    } imm_src_t;
 
 endpackage

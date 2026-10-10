@@ -17,14 +17,20 @@ module control
     input  logic       funct7_5,     // instr[30]: picks sub/sra over add/srl
     output logic       reg_write,    // 1: write the result into rd
     output logic       alu_src,      // 0: ALU b = rs2, 1: ALU b = immediate
-    output alu_op_t    alu_op
+    output alu_op_t    alu_op,
+    output imm_src_t   imm_src,      // which immediate format to decode
+    output logic       mem_write,    // 1: write rs2 into data memory
+    output logic       result_src    // 0: rd gets the ALU, 1: rd gets the memory
 );
 
     always_comb begin
         // defaults: do nothing
-        reg_write = 1'b0;
-        alu_src   = 1'b0;
-        alu_op    = ALU_ADD;
+        reg_write  = 1'b0;
+        alu_src    = 1'b0;
+        alu_op     = ALU_ADD;
+        imm_src    = IMM_I;
+        mem_write  = 1'b0;
+        result_src = 1'b0;
 
         case (opcode)
             // ---- register and immediate: addi, andi, xori, srli ----------
@@ -51,6 +57,25 @@ module control
                         F3_XOR: begin alu_op = ALU_XOR; reg_write = 1'b1; end
                         default: ;
                     endcase
+                end
+            end
+
+            // ---- load: lw  (address = rs1 + imm) -------------------------
+            OP_LOAD: begin
+                if (funct3 == F3_W) begin
+                    alu_src    = 1'b1;
+                    imm_src    = IMM_I;
+                    result_src = 1'b1;
+                    reg_write  = 1'b1;
+                end
+            end
+
+            // ---- store: sw  (address = rs1 + imm, data = rs2) ------------
+            OP_STORE: begin
+                if (funct3 == F3_W) begin
+                    alu_src   = 1'b1;
+                    imm_src   = IMM_S;
+                    mem_write = 1'b1;
                 end
             end
 

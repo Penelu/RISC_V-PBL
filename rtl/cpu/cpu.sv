@@ -6,7 +6,9 @@
 //
 //   pc -> imem -> control + regfile -> alu -> regfile
 //
-// Stage 2: addi, andi, xori, srli, add, and, xor.
+//   alu -> dmem -> regfile               (lw, sw)
+//
+// Stage 3: addi, andi, xori, srli, add, and, xor, lw, sw.
 //------------------------------------------------------------------------------
 
 module cpu
@@ -40,7 +42,7 @@ module cpu
     logic [2:0]  funct3;
     logic        funct7_5;
     logic [4:0]  rs1, rs2, rd;
-    logic [31:0] imm_i;
+    logic [31:0] imm;
 
     assign opcode   = instr[6:0];
     assign funct3   = instr[14:12];
@@ -48,19 +50,31 @@ module cpu
     assign rd       = instr[11:7];
     assign rs1      = instr[19:15];
     assign rs2      = instr[24:20];
-    assign imm_i    = {{20{instr[31]}}, instr[31:20]};   // I-type, sign extended
 
-    logic    reg_write, alu_src;
-    alu_op_t alu_op;
+    logic     reg_write, alu_src, mem_write, result_src;
+    alu_op_t  alu_op;
+    imm_src_t imm_src;
 
     control u_control (
-        .opcode    (opcode),
-        .funct3    (funct3),
-        .funct7_5  (funct7_5),
-        .reg_write (reg_write),
-        .alu_src   (alu_src),
-        .alu_op    (alu_op)
+        .opcode     (opcode),
+        .funct3     (funct3),
+        .funct7_5   (funct7_5),
+        .reg_write  (reg_write),
+        .alu_src    (alu_src),
+        .alu_op     (alu_op),
+        .imm_src    (imm_src),
+        .mem_write  (mem_write),
+        .result_src (result_src)
     );
+
+    // immediate, sign extended from instr[31] in every format
+    always_comb begin
+        case (imm_src)
+            IMM_I:   imm = {{20{instr[31]}}, instr[31:20]};
+            IMM_S:   imm = {{20{instr[31]}}, instr[31:25], instr[11:7]};
+            default: imm = 32'd0;
+        endcase
+    end
 
     // ---- register file ------------------------------------------------------
     logic [31:0] rs1_val, rs2_val, result;
@@ -77,15 +91,29 @@ module cpu
     );
 
     // ---- execute ------------------------------------------------------------
-    logic [31:0] alu_b;
+    logic [31:0] alu_b, alu_y;
 
-    assign alu_b = alu_src ? imm_i : rs2_val;
+    assign alu_b = alu_src ? imm : rs2_val;
 
     alu u_alu (
         .a  (rs1_val),
         .b  (alu_b),
         .op (alu_op),
-        .y  (result)
+        .y  (alu_y)
     );
+
+    // ---- memory -------------------------------------------------------------
+    logic [31:0] mem_rd;
+
+    dmem u_dmem (
+        .clk  (clk),
+        .we   (mem_write),
+        .addr (alu_y),
+        .wd   (rs2_val),
+        .rd   (mem_rd)
+    );
+
+    // ---- write back ---------------------------------------------------------
+    assign result = result_src ? mem_rd : alu_y;
 
 endmodule

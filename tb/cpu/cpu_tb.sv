@@ -1,7 +1,8 @@
 //------------------------------------------------------------------------------
 // cpu_tb - processor testbench
 //------------------------------------------------------------------------------
-// Loads a program, lets it run, then compares registers with expected values.
+// Loads a program, lets it run, then compares registers and data memory with
+// expected values.
 // For each new stage only two things change: PROGRAM and the list of checks.
 //
 // Stimulus changes on the falling edge, away from the rising edge the
@@ -13,7 +14,7 @@
 module cpu_tb;
 
     // full path, so the simulator finds the file wherever it runs from
-    localparam string PROGRAM = "/home/gubio/CODESPACE/RISC_V-PBL/sw/stage2.hex";
+    localparam string PROGRAM = "/home/gubio/CODESPACE/RISC_V-PBL/sw/stage3.hex";
     localparam int    CYCLES  = 20;          // enough for the whole program
 
     logic clk   = 1'b0;
@@ -40,23 +41,40 @@ module cpu_tb;
         end
     endtask
 
+    // same idea for the data memory; addr is in bytes, like in the program
+    task automatic check_mem(input int addr, input logic [31:0] expected);
+        logic [31:0] got;
+        got = dut.u_dmem.mem[addr / 4];
+        if (got === expected) begin
+            $display("PASS  mem[%0d] = %h", addr, got);
+        end
+        else begin
+            $display("FAIL  mem[%0d] = %h, expected %h", addr, got, expected);
+            errors++;
+        end
+    endtask
+
     initial begin
         repeat (2) @(negedge clk);
         reset = 1'b0;
 
         repeat (CYCLES) @(negedge clk);
 
-        // ---- expected results of sw/stage2.s --------------------------------
-        check( 1, 32'd12);           // addi
-        check( 2, 32'd10);           // addi
-        check( 3, 32'd22);           // add   12 + 10
-        check( 4, 32'd8);            // and   1100 & 1010
-        check( 5, 32'd6);            // xor   1100 ^ 1010
-        check( 6, 32'd4);            // andi  1100 & 0110
-        check( 7, 32'd9);            // xori  1100 ^ 0101
-        check( 8, 32'd3);            // srli  12 >> 2
-        check( 9, 32'hFFFFFFFF);     // xori with -1: negative immediate
-        check(10, 32'd21);           // add   22 + (-1)
+        // ---- expected results of sw/stage3.s --------------------------------
+        check( 1, 32'd42);           // addi
+        check( 2, 32'hFFFFFFF9);     // addi  -7
+        check( 3, 32'd16);           // addi  base address
+        check( 4, 32'd42);           // lw    0(x0)
+        check( 5, 32'hFFFFFFF9);     // lw    4(x0)
+        check( 6, 32'd42);           // lw    8(x3)
+        check( 7, 32'hFFFFFFF9);     // lw   -4(x3): negative offset
+        check( 8, 32'd35);           // add   42 + (-7)
+        check( 9, 32'd35);           // lw right after sw
+        check_mem( 0, 32'd42);       // sw    0(x0)
+        check_mem( 4, 32'hFFFFFFF9); // sw    4(x0)
+        check_mem(12, 32'hFFFFFFF9); // sw   -4(x3): S immediate, negative
+        check_mem(16, 32'd35);       // sw    0(x3)
+        check_mem(24, 32'd42);       // sw    8(x3)
 
         $display("=== %0d error(s)", errors);
         $finish;
