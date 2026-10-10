@@ -1,0 +1,7 @@
+rtl/cpu/cpu_pkg.sv
+rtl/cpu/pc.sv
+rtl/cpu/imem.sv
+rtl/cpu/regfile.sv
+rtl/cpu/alu.sv
+rtl/cpu/control.sv
+rtl/cpu/cpu.sv
