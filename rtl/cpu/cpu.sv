@@ -7,10 +7,11 @@
 //   pc -> imem -> control + regfile -> alu -> regfile
 //
 //   alu -> dmem -> regfile               (lw, sw)
-//   pc + imm -> pc                       (taken branch)
+//   pc + imm -> pc                       (taken branch, jal)
+//   alu      -> pc                       (jalr)
 //
-// Stage 4: addi, andi, xori, srli, add, and, xor, lw, sw,
-//          beq, bne, blt, bge.
+// Stage 5: addi, andi, xori, srli, add, and, xor, lw, sw,
+//          beq, bne, blt, bge, jal, jalr.
 //------------------------------------------------------------------------------
 
 module cpu
@@ -23,11 +24,19 @@ module cpu
 );
 
     // ---- fetch --------------------------------------------------------------
-    logic [31:0] pc_cur, pc_next, pc_target, instr;
-    logic        pc_src;
+    logic [31:0] pc_cur, pc_next, pc_plus4, pc_target, alu_y, instr;
+    pc_src_t     pc_src;
 
-    // next instruction, or the branch target when the branch is taken
-    assign pc_next = pc_src ? pc_target : pc_cur + 32'd4;
+    assign pc_plus4 = pc_cur + 32'd4;
+
+    // jalr clears bit 0 of its target, as the RISC-V spec asks
+    always_comb begin
+        case (pc_src)
+            PC_TARGET: pc_next = pc_target;
+            PC_ALU:    pc_next = {alu_y[31:1], 1'b0};
+            default:   pc_next = pc_plus4;
+        endcase
+    end
 
     pc u_pc (
         .clk     (clk),
@@ -55,10 +64,11 @@ module cpu
     assign rs1      = instr[19:15];
     assign rs2      = instr[24:20];
 
-    logic     reg_write, alu_src, mem_write, result_src;
-    logic     eq, lt;                // branch comparison, made in execute
-    alu_op_t  alu_op;
-    imm_src_t imm_src;
+    logic        reg_write, alu_src, mem_write;
+    result_src_t result_src;
+    logic        eq, lt;             // branch comparison, made in execute
+    alu_op_t     alu_op;
+    imm_src_t    imm_src;
 
     control u_control (
         .opcode     (opcode),
@@ -81,6 +91,7 @@ module cpu
             IMM_I:   imm = {{20{instr[31]}}, instr[31:20]};
             IMM_S:   imm = {{20{instr[31]}}, instr[31:25], instr[11:7]};
             IMM_B:   imm = {{20{instr[31]}}, instr[7], instr[30:25], instr[11:8], 1'b0};
+            IMM_J:   imm = {{12{instr[31]}}, instr[19:12], instr[20], instr[30:21], 1'b0};
             default: imm = 32'd0;
         endcase
     end
@@ -100,7 +111,7 @@ module cpu
     );
 
     // ---- execute ------------------------------------------------------------
-    logic [31:0] alu_b, alu_y;
+    logic [31:0] alu_b;
 
     assign alu_b = alu_src ? imm : rs2_val;
 
@@ -128,6 +139,12 @@ module cpu
     );
 
     // ---- write back ---------------------------------------------------------
-    assign result = result_src ? mem_rd : alu_y;
+    always_comb begin
+        case (result_src)
+            RES_MEM: result = mem_rd;
+            RES_PC4: result = pc_plus4;
+            default: result = alu_y;
+        endcase
+    end
 
 endmodule

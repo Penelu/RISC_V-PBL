@@ -22,8 +22,8 @@ module control
     output alu_op_t    alu_op,
     output imm_src_t   imm_src,      // which immediate format to decode
     output logic       mem_write,    // 1: write rs2 into data memory
-    output logic       result_src,   // 0: rd gets the ALU, 1: rd gets the memory
-    output logic       pc_src        // 0: pc + 4, 1: pc + immediate (branch taken)
+    output result_src_t result_src,  // what rd gets: ALU, memory or pc + 4
+    output pc_src_t    pc_src        // where the next pc comes from
 );
 
     always_comb begin
@@ -33,8 +33,8 @@ module control
         alu_op     = ALU_ADD;
         imm_src    = IMM_I;
         mem_write  = 1'b0;
-        result_src = 1'b0;
-        pc_src     = 1'b0;
+        result_src = RES_ALU;
+        pc_src     = PC_PLUS4;
 
         case (opcode)
             // ---- register and immediate: addi, andi, xori, srli ----------
@@ -69,7 +69,7 @@ module control
                 if (funct3 == F3_W) begin
                     alu_src    = 1'b1;
                     imm_src    = IMM_I;
-                    result_src = 1'b1;
+                    result_src = RES_MEM;
                     reg_write  = 1'b1;
                 end
             end
@@ -87,12 +87,31 @@ module control
             OP_BRANCH: begin
                 imm_src = IMM_B;
                 case (funct3)
-                    F3_BEQ:  pc_src =  eq;
-                    F3_BNE:  pc_src = !eq;
-                    F3_BLT:  pc_src =  lt;
-                    F3_BGE:  pc_src = !lt;
+                    F3_BEQ:  if ( eq) pc_src = PC_TARGET;
+                    F3_BNE:  if (!eq) pc_src = PC_TARGET;
+                    F3_BLT:  if ( lt) pc_src = PC_TARGET;
+                    F3_BGE:  if (!lt) pc_src = PC_TARGET;
                     default: ;
                 endcase
+            end
+
+            // ---- jal: rd = pc + 4, jump to pc + imm ----------------------
+            OP_JAL: begin
+                imm_src    = IMM_J;
+                pc_src     = PC_TARGET;
+                result_src = RES_PC4;
+                reg_write  = 1'b1;
+            end
+
+            // ---- jalr: rd = pc + 4, jump to rs1 + imm --------------------
+            OP_JALR: begin
+                if (funct3 == F3_ADD) begin
+                    alu_src    = 1'b1;
+                    imm_src    = IMM_I;
+                    pc_src     = PC_ALU;
+                    result_src = RES_PC4;
+                    reg_write  = 1'b1;
+                end
             end
 
             default: ;

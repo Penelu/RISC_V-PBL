@@ -14,7 +14,7 @@
 module cpu_tb;
 
     // full path, so the simulator finds the file wherever it runs from
-    localparam string PROGRAM = "/home/gubio/CODESPACE/RISC_V-PBL/sw/stage4.hex";
+    localparam string PROGRAM = "/home/gubio/CODESPACE/RISC_V-PBL/sw/stage5.hex";
     localparam int    CYCLES  = 50;          // enough for the whole program
 
     logic clk   = 1'b0;
@@ -60,16 +60,19 @@ module cpu_tb;
 
         repeat (CYCLES) @(negedge clk);
 
-        // ---- expected results of sw/stage4.s --------------------------------
+        // ---- expected results of sw/stage5.s --------------------------------
         check(10, 32'd0);            // no wrong-path instruction ran
-        check(11, 32'd4);            // all 4 right-path instructions ran
-        check( 4, 32'd3);            // backward branch looped 3 times
-        check( 6, 32'd7);            // fell out of the loop
-        if (dut.pc_cur === 32'h70) begin
+        check( 4, 32'h08);           // jal writes pc + 4
+        check( 1, 32'h14);           // call: ra = return address
+        check( 6, 32'd6);            // the function ran
+        check( 5, 32'd9);            // and returned to the caller
+        check( 3, 32'h30);           // jalr writes pc + 4
+        check( 8, 32'd8);            // backward jal
+        if (dut.pc_cur === 32'h44) begin
             $display("PASS  pc = %h (halt)", dut.pc_cur);
         end
         else begin
-            $display("FAIL  pc = %h, expected 00000070 (halt)", dut.pc_cur);
+            $display("FAIL  pc = %h, expected 00000044 (halt)", dut.pc_cur);
             errors++;
         end
 

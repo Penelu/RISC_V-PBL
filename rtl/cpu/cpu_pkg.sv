@@ -13,6 +13,8 @@ package cpu_pkg;
     localparam logic [6:0] OP_LOAD  = 7'b0000011; // lw
     localparam logic [6:0] OP_STORE = 7'b0100011; // sw
     localparam logic [6:0] OP_BRANCH = 7'b1100011; // beq, bne, blt, bge
+    localparam logic [6:0] OP_JAL    = 7'b1101111; // jal
+    localparam logic [6:0] OP_JALR   = 7'b1100111; // jalr
 
     // ---- funct3 (instr[14:12]) ---------------------------------------------
     localparam logic [2:0] F3_ADD = 3'b000;
@@ -37,11 +39,26 @@ package cpu_pkg;
 
     // ---- immediate formats --------------------------------------------------
     // Each format keeps the immediate bits in a different place of the
-    // instruction; later stages add J and U.
+    // instruction; a later stage adds U.
     typedef enum logic [2:0] {
         IMM_I,                       // addi, lw: instr[31:20]
         IMM_S,                       // sw: instr[31:25] + instr[11:7]
-        IMM_B                        // beq...: like S, scrambled, in 2-byte steps
+        IMM_B,                       // beq...: like S, scrambled, in 2-byte steps
+        IMM_J                        // jal: instr[31:12], scrambled, in 2-byte steps
     } imm_src_t;
+
+    // ---- where the next pc comes from ---------------------------------------
+    typedef enum logic [1:0] {
+        PC_PLUS4,                    // the next instruction
+        PC_TARGET,                   // pc + imm: taken branch, jal
+        PC_ALU                       // rs1 + imm: jalr
+    } pc_src_t;
+
+    // ---- what is written into rd --------------------------------------------
+    typedef enum logic [1:0] {
+        RES_ALU,                     // add, addi...
+        RES_MEM,                     // lw
+        RES_PC4                      // jal, jalr: the return address
+    } result_src_t;
 
 endpackage
