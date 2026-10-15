@@ -10,8 +10,9 @@
 //   pc + imm -> pc                       (taken branch, jal)
 //   alu      -> pc                       (jalr)
 //
-// Stage 5: addi, andi, xori, srli, add, and, xor, lw, sw,
-//          beq, bne, blt, bge, jal, jalr.
+// Stage 6: every instruction of the Genius program:
+//          add, addi, and, andi, xor, xori, srli, lw, sw, lbu, sb,
+//          beq, bne, blt, bge, jal, jalr, lui, auipc.
 //------------------------------------------------------------------------------
 
 module cpu
@@ -64,7 +65,7 @@ module cpu
     assign rs1      = instr[19:15];
     assign rs2      = instr[24:20];
 
-    logic        reg_write, alu_src, mem_write;
+    logic        reg_write, alu_src, mem_write, mem_byte;
     result_src_t result_src;
     logic        eq, lt;             // branch comparison, made in execute
     alu_op_t     alu_op;
@@ -81,6 +82,7 @@ module cpu
         .alu_op     (alu_op),
         .imm_src    (imm_src),
         .mem_write  (mem_write),
+        .mem_byte   (mem_byte),
         .result_src (result_src),
         .pc_src     (pc_src)
     );
@@ -92,6 +94,7 @@ module cpu
             IMM_S:   imm = {{20{instr[31]}}, instr[31:25], instr[11:7]};
             IMM_B:   imm = {{20{instr[31]}}, instr[7], instr[30:25], instr[11:8], 1'b0};
             IMM_J:   imm = {{12{instr[31]}}, instr[19:12], instr[20], instr[30:21], 1'b0};
+            IMM_U:   imm = {instr[31:12], 12'd0};
             default: imm = 32'd0;
         endcase
     end
@@ -131,19 +134,22 @@ module cpu
     logic [31:0] mem_rd;
 
     dmem u_dmem (
-        .clk  (clk),
-        .we   (mem_write),
-        .addr (alu_y),
-        .wd   (rs2_val),
-        .rd   (mem_rd)
+        .clk     (clk),
+        .we      (mem_write),
+        .byte_en (mem_byte),
+        .addr    (alu_y),
+        .wd      (rs2_val),
+        .rd      (mem_rd)
     );
 
     // ---- write back ---------------------------------------------------------
     always_comb begin
         case (result_src)
-            RES_MEM: result = mem_rd;
-            RES_PC4: result = pc_plus4;
-            default: result = alu_y;
+            RES_MEM:    result = mem_rd;
+            RES_PC4:    result = pc_plus4;
+            RES_IMM:    result = imm;
+            RES_TARGET: result = pc_target;
+            default:    result = alu_y;
         endcase
     end
 

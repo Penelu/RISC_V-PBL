@@ -14,7 +14,7 @@
 module cpu_tb;
 
     // full path, so the simulator finds the file wherever it runs from
-    localparam string PROGRAM = "/home/gubio/CODESPACE/RISC_V-PBL/sw/stage5.hex";
+    localparam string PROGRAM = "/home/gubio/CODESPACE/RISC_V-PBL/sw/stage6.hex";
     localparam int    CYCLES  = 50;          // enough for the whole program
 
     logic clk   = 1'b0;
@@ -60,14 +60,19 @@ module cpu_tb;
 
         repeat (CYCLES) @(negedge clk);
 
-        // ---- expected results of sw/stage5.s --------------------------------
-        check(10, 32'd0);            // no wrong-path instruction ran
-        check( 4, 32'h08);           // jal writes pc + 4
-        check( 1, 32'h14);           // call: ra = return address
-        check( 6, 32'd6);            // the function ran
-        check( 5, 32'd9);            // and returned to the caller
-        check( 3, 32'h30);           // jalr writes pc + 4
-        check( 8, 32'd8);            // backward jal
+        // ---- expected results of sw/stage6.s --------------------------------
+        check( 1, 32'h12345678);     // lui + addi (li)
+        check( 2, 32'hFFFFF000);     // lui with the top bit set
+        check( 3, 32'h0000000C);     // auipc 0: its own pc
+        check( 4, 32'h00001010);     // auipc 1: pc + 1000
+        check( 5, 32'h00000078);     // lbu byte 0
+        check( 6, 32'h00000056);     // lbu byte 1
+        check( 7, 32'h00000012);     // lbu byte 3
+        check( 9, 32'h000000FF);     // lbu fills with zeros, not with the sign
+        check(10, 32'hFFFF78FF);     // lw after sb
+        check_mem(0, 32'h12345678);
+        check_mem(4, 32'hFFFF78FF);  // sb changed only byte 1
+        check_mem(8, 32'hFF000078);  // sb into bytes 0 and 3
         if (dut.pc_cur === 32'h44) begin
             $display("PASS  pc = %h (halt)", dut.pc_cur);
         end

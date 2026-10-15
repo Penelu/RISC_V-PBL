@@ -22,7 +22,8 @@ module control
     output alu_op_t    alu_op,
     output imm_src_t   imm_src,      // which immediate format to decode
     output logic       mem_write,    // 1: write rs2 into data memory
-    output result_src_t result_src,  // what rd gets: ALU, memory or pc + 4
+    output logic       mem_byte,     // 1: memory access is one byte (lbu, sb)
+    output result_src_t result_src,  // what rd gets: ALU, memory, pc + 4...
     output pc_src_t    pc_src        // where the next pc comes from
 );
 
@@ -33,6 +34,7 @@ module control
         alu_op     = ALU_ADD;
         imm_src    = IMM_I;
         mem_write  = 1'b0;
+        mem_byte   = 1'b0;
         result_src = RES_ALU;
         pc_src     = PC_PLUS4;
 
@@ -64,22 +66,24 @@ module control
                 end
             end
 
-            // ---- load: lw  (address = rs1 + imm) -------------------------
+            // ---- load: lw, lbu  (address = rs1 + imm) --------------------
             OP_LOAD: begin
-                if (funct3 == F3_W) begin
+                if (funct3 == F3_W || funct3 == F3_BU) begin
                     alu_src    = 1'b1;
                     imm_src    = IMM_I;
                     result_src = RES_MEM;
                     reg_write  = 1'b1;
+                    mem_byte   = (funct3 == F3_BU);
                 end
             end
 
-            // ---- store: sw  (address = rs1 + imm, data = rs2) ------------
+            // ---- store: sw, sb  (address = rs1 + imm, data = rs2) --------
             OP_STORE: begin
-                if (funct3 == F3_W) begin
+                if (funct3 == F3_W || funct3 == F3_B) begin
                     alu_src   = 1'b1;
                     imm_src   = IMM_S;
                     mem_write = 1'b1;
+                    mem_byte  = (funct3 == F3_B);
                 end
             end
 
@@ -112,6 +116,20 @@ module control
                     result_src = RES_PC4;
                     reg_write  = 1'b1;
                 end
+            end
+
+            // ---- lui: rd = imm << 12 -------------------------------------
+            OP_LUI: begin
+                imm_src    = IMM_U;
+                result_src = RES_IMM;
+                reg_write  = 1'b1;
+            end
+
+            // ---- auipc: rd = pc + (imm << 12) ----------------------------
+            OP_AUIPC: begin
+                imm_src    = IMM_U;
+                result_src = RES_TARGET;
+                reg_write  = 1'b1;
             end
 
             default: ;
