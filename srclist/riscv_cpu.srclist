@@ -7,3 +7,4 @@ rtl/cpu/dmem.sv
 rtl/cpu/io.sv
 rtl/cpu/control.sv
 rtl/cpu/cpu.sv
+rtl/cpu/riscv_top.sv
