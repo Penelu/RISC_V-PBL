@@ -76,16 +76,6 @@ Endereços com `addr[31:28] = F` vão para o `io`; o resto vai para a `dmem`, qu
 
 Os testbenches usam caminhos absolutos (`/home/gubio/CODESPACE/RISC_V-PBL/...`) para os `.hex`. Em outra máquina, ajuste `PROGRAM`/`DATA` nos testbenches e os caminhos em `riscv_top.sv`.
 
-### Como simular pela linha de comando
-
-```bash
-source <instalação do Vivado>/settings64.sh
-mkdir -p build/cpu && cd build/cpu
-xvlog -sv $(sed 's|^|../../|' ../../srclist/riscv_cpu.srclist) ../../tb/cpu/genius_tb.sv
-xelab genius_tb -s sim
-xsim sim -R
-```
-
 Troque `genius_tb` por `cpu_tb` para o outro testbench.
 
 ### Testes
