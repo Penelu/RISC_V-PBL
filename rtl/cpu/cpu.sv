@@ -6,13 +6,14 @@
 //
 //   pc -> imem -> control + regfile -> alu -> regfile
 //
-//   alu -> dmem -> regfile               (lw, sw)
+//   alu -> dmem or io -> regfile         (lw, sw; io from 0xF0000000 up)
 //   pc + imm -> pc                       (taken branch, jal)
 //   alu      -> pc                       (jalr)
 //
-// Stage 6: every instruction of the Genius program:
-//          add, addi, and, andi, xor, xori, srli, lw, sw, lbu, sb,
-//          beq, bne, blt, bge, jal, jalr, lui, auipc.
+// Stage 7: every instruction of the Genius program
+//          (add, addi, and, andi, xor, xori, srli, lw, sw, lbu, sb,
+//          beq, bne, blt, bge, jal, jalr, lui, auipc), plus the
+//          peripherals at the same addresses as in Ripes.
 //------------------------------------------------------------------------------
 
 module cpu
@@ -20,8 +21,11 @@ module cpu
 #(
     parameter MEM_FILE = ""          // program loaded into the instruction memory
 )(
-    input  logic clk,
-    input  logic reset               // active-high, asynchronous
+    input  logic       clk,
+    input  logic       reset,        // active-high, asynchronous
+    input  logic [3:0] dpad,         // bit 0 up, 1 down, 2 left, 3 right
+    input  logic [6:0] switches,
+    output logic [3:0] leds          // 1: LED lit
 );
 
     // ---- fetch --------------------------------------------------------------
@@ -130,17 +134,35 @@ module cpu
     assign lt        = ($signed(rs1_val) < $signed(rs2_val));
     assign pc_target = pc_cur + imm;
 
-    // ---- memory -------------------------------------------------------------
-    logic [31:0] mem_rd;
+    // ---- memory and I/O -----------------------------------------------------
+    // The top address bits say who answers: data memory or a peripheral.
+    logic        io_sel;
+    logic [31:0] dmem_rd, io_rd, mem_rd;
+
+    assign io_sel = (alu_y[31:28] == IO_REGION);
 
     dmem u_dmem (
         .clk     (clk),
-        .we      (mem_write),
+        .we      (mem_write && !io_sel),
         .byte_en (mem_byte),
         .addr    (alu_y),
         .wd      (rs2_val),
-        .rd      (mem_rd)
+        .rd      (dmem_rd)
     );
+
+    io u_io (
+        .clk      (clk),
+        .reset    (reset),
+        .we       (mem_write && io_sel),
+        .addr     (alu_y),
+        .wd       (rs2_val),
+        .rd       (io_rd),
+        .dpad     (dpad),
+        .switches (switches),
+        .leds     (leds)
+    );
+
+    assign mem_rd = io_sel ? io_rd : dmem_rd;
 
     // ---- write back ---------------------------------------------------------
     always_comb begin

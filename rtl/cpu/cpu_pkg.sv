@@ -68,4 +68,12 @@ package cpu_pkg;
         RES_TARGET                   // auipc: pc + imm
     } result_src_t;
 
+    // ---- memory map of the peripherals --------------------------------------
+    // Same addresses Ripes gives them, so Genius.s runs unchanged. Every
+    // address from 0xF0000000 up is I/O; everything below is data memory.
+    localparam logic [3:0]  IO_REGION     = 4'hF;            // addr[31:28]
+    localparam logic [31:0] DPAD_BASE     = 32'hF000_0000;   // up, down, left, right
+    localparam logic [31:0] LED_BASE      = 32'hF000_0010;   // 4 LEDs, one colour each
+    localparam logic [31:0] SWITCHES_BASE = 32'hF000_0020;   // bit n = switch n
+
 endpackage

@@ -14,18 +14,24 @@
 module cpu_tb;
 
     // full path, so the simulator finds the file wherever it runs from
-    localparam string PROGRAM = "/home/gubio/CODESPACE/RISC_V-PBL/sw/stage6.hex";
+    localparam string PROGRAM = "/home/gubio/CODESPACE/RISC_V-PBL/sw/stage7.hex";
     localparam int    CYCLES  = 50;          // enough for the whole program
 
-    logic clk   = 1'b0;
-    logic reset = 1'b1;
-    int   errors = 0;
+    logic       clk      = 1'b0;
+    logic       reset    = 1'b1;
+    logic [3:0] dpad     = 4'b0101;      // up and left held
+    logic [6:0] switches = 7'b1010011;
+    logic [3:0] leds;
+    int         errors   = 0;
 
     always #5 clk = ~clk;                    // 100 MHz
 
     cpu #(.MEM_FILE(PROGRAM)) dut (
-        .clk   (clk),
-        .reset (reset)
+        .clk      (clk),
+        .reset    (reset),
+        .dpad     (dpad),
+        .switches (switches),
+        .leds     (leds)
     );
 
     // prints one register and compares it with the expected value
@@ -60,24 +66,27 @@ module cpu_tb;
 
         repeat (CYCLES) @(negedge clk);
 
-        // ---- expected results of sw/stage6.s --------------------------------
-        check( 1, 32'h12345678);     // lui + addi (li)
-        check( 2, 32'hFFFFF000);     // lui with the top bit set
-        check( 3, 32'h0000000C);     // auipc 0: its own pc
-        check( 4, 32'h00001010);     // auipc 1: pc + 1000
-        check( 5, 32'h00000078);     // lbu byte 0
-        check( 6, 32'h00000056);     // lbu byte 1
-        check( 7, 32'h00000012);     // lbu byte 3
-        check( 9, 32'h000000FF);     // lbu fills with zeros, not with the sign
-        check(10, 32'hFFFF78FF);     // lw after sb
-        check_mem(0, 32'h12345678);
-        check_mem(4, 32'hFFFF78FF);  // sb changed only byte 1
-        check_mem(8, 32'hFF000078);  // sb into bytes 0 and 3
-        if (dut.pc_cur === 32'h44) begin
+        // ---- expected results of sw/stage7.s --------------------------------
+        check( 2, 32'd1);            // D-pad up    held
+        check( 3, 32'd0);            // D-pad down  released
+        check( 4, 32'd1);            // D-pad left  held
+        check( 5, 32'd0);            // D-pad right released
+        check( 6, 32'h53);           // switches 1010011
+        check( 9, 32'h00FF0000);     // LED 0 colour read back
+        check(10, 32'h00FF0000);     // the D-pad write did not reach mem[0]
+        check_mem(0, 32'h00FF0000);
+        if (leds === 4'b1001) begin
+            $display("PASS  leds = %b", leds);
+        end
+        else begin
+            $display("FAIL  leds = %b, expected 1001", leds);
+            errors++;
+        end
+        if (dut.pc_cur === 32'h40) begin
             $display("PASS  pc = %h (halt)", dut.pc_cur);
         end
         else begin
-            $display("FAIL  pc = %h, expected 00000044 (halt)", dut.pc_cur);
+            $display("FAIL  pc = %h, expected 00000040 (halt)", dut.pc_cur);
             errors++;
         end
 
