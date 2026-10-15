@@ -1,7 +1,145 @@
-# Adder Template
+# RISC_V-PBL
+
+Repositório de treinamento por PBL (laboratório QuIIN / SENAI CIMATEC) em torno do jogo **Genius**.
+
+| PBL | O que é | Onde está |
+|---|---|---|
+| PBL01 | Genius em RTL, com máquina de estados | `rtl/pbl_1/`, `tb/genius_tb_top.sv` |
+| PBL02 | Genius em assembly RISC-V para o simulador Ripes | `sw/pbl_1/Genius.s` |
+| **PBL03** | **Processador RISC-V em SystemVerilog que roda o Genius do PBL02** | `rtl/cpu/`, `tb/cpu/`, `sw/`, `constrs/` |
+| — | Lista de exercícios de assembly (RARS) | `assembly-exercices/` |
+| — | Exemplo UVM do template original (somador) | `tb/env/`, `tb/tests/`, `srclist/adder*` (ver o fim deste arquivo) |
+
+---
+
+## PBL03 — Processador RISC-V de ciclo único
+
+Processador RV32I de **ciclo único** (cada instrução em um clock), baseado em Harris & Harris, *Digital Design and Computer Architecture, RISC-V Edition*, cap. 7. Ele implementa só as instruções que o Genius usa, e os periféricos ficam nos **mesmos endereços do Ripes**, de modo que o programa do PBL02 roda quase sem mudanças.
+
+**Estado:** o Genius roda inteiro em simulação, e a síntese passa no Vivado a 50 MHz. Ainda não foi testado em placa (ver *Limitações*).
+
+### Instruções suportadas (19)
+
+`add addi and andi xor xori srli lw sw lbu sb beq bne blt bge jal jalr lui auipc`
+
+Qualquer outra instrução é ignorada: não escreve registrador nem memória.
+
+### Interface
+
+O topo do processador é `cpu` (`rtl/cpu/cpu.sv`). Para síntese, `riscv_top` (`rtl/cpu/riscv_top.sv`) é o mesmo `cpu` com o Genius já carregado.
+
+| Porta | Direção | Descrição |
+|---|---|---|
+| `clk` | entrada | clock (50 MHz na síntese) |
+| `reset` | entrada | ativo em alto, assíncrono; o PC volta para 0 |
+| `dpad[3:0]` | entrada | setas: bit 0 cima, 1 baixo, 2 esquerda, 3 direita (1 = apertada) |
+| `switches[6:0]` | entrada | chaves: bit *n* = chave *n* |
+| `leds[3:0]` | saída | lentes do Genius: 1 = acesa |
+
+Parâmetros do `cpu`: `MEM_FILE` (programa, `.hex`) e `DATA_FILE` (dados iniciais, `_data.hex`), ambos com **caminho absoluto**.
+
+### Mapa de memória
+
+| Endereço | Quem responde | Uso |
+|---|---|---|
+| `0x00000000` | `imem` (1024 palavras) | programa (`.text`) |
+| `0x10000000` | `dmem` (1024 palavras) | dados (`.data`) e pilha |
+| `0xF0000000` – `0x0C` | `io`: D-pad | leitura: 1 enquanto cima/baixo/esquerda/direita está apertada |
+| `0xF0000010` – `0x1C` | `io`: LEDs 0 a 3 | escrita: cor do LED (0 = apagado) |
+| `0xF0000020` | `io`: chaves | leitura: bit *n* = chave *n* |
+
+Endereços com `addr[31:28] = F` vão para o `io`; o resto vai para a `dmem`, que usa só os bits baixos do endereço. Por isso `0x10000000` cai na palavra 0 e a pilha (`sp = 0x7ffffff0`) cai perto do topo. As entradas passam por um sincronizador de 2 flip-flops, então chegam ao programa 2 ciclos depois.
+
+### Arquivos
+
+| Arquivo | Conteúdo |
+|---|---|
+| `rtl/cpu/cpu_pkg.sv` | opcodes, `funct3`, enums dos sinais de controle, endereços de I/O |
+| `rtl/cpu/pc.sv`, `imem.sv`, `regfile.sv`, `alu.sv`, `dmem.sv`, `io.sv` | blocos do caminho de dados |
+| `rtl/cpu/control.sv` | decodificador: gera todos os sinais de controle a partir da instrução |
+| `rtl/cpu/cpu.sv` | liga tudo |
+| `rtl/cpu/riscv_top.sv` | topo de síntese com o Genius carregado |
+| `constrs/riscv_timing.xdc` | só o clock (50 MHz); sem pinos de placa |
+| `srclist/riscv_cpu.srclist` | ordem de compilação |
+| `sw/rvasm.py` | montador próprio (não há toolchain RISC-V instalado) |
+| `sw/genius.s` | o Genius do PBL02 sem os `ecall` e com `sp` iniciado pelo programa |
+| `sw/stageN.s` / `.hex` | programas de teste de cada etapa de construção |
+| `tb/cpu/cpu_tb.sv` | testbench das etapas (hoje: etapa 7, I/O) |
+| `tb/cpu/genius_tb.sv` | testbench que joga o Genius |
+
+### Como simular no Vivado (GUI)
+
+1. **Design Sources:** todos os arquivos de `rtl/cpu/`. **Simulation Sources:** `tb/cpu/cpu_tb.sv` e `tb/cpu/genius_tb.sv`. Adicione com *Copy sources into project* desmarcado.
+2. Em *Simulation Sources*, clique com o botão direito no testbench desejado e escolha **Set as Top**.
+3. Clique em **Run Simulation**. O `genius_tb` precisa de ~78 ms de tempo simulado: clique em **Run All** (`F3`), ou ajuste `xsim.simulate.runtime` para `all` nas configurações de simulação.
+4. O console termina com `=== N error(s)`; o esperado é 0.
+
+Os testbenches usam caminhos absolutos (`/home/gubio/CODESPACE/RISC_V-PBL/...`) para os `.hex`. Em outra máquina, ajuste `PROGRAM`/`DATA` nos testbenches e os caminhos em `riscv_top.sv`.
+
+### Como simular pela linha de comando
+
+```bash
+source <instalação do Vivado>/settings64.sh
+mkdir -p build/cpu && cd build/cpu
+xvlog -sv $(sed 's|^|../../|' ../../srclist/riscv_cpu.srclist) ../../tb/cpu/genius_tb.sv
+xelab genius_tb -s sim
+xsim sim -R
+```
+
+Troque `genius_tb` por `cpu_tb` para o outro testbench.
+
+### Testes
+
+- **`cpu_tb`** roda um programa de `sw/stageN.hex` e confere registradores, memória, LEDs e o PC final (o programa termina num salto para si mesmo). Cada etapa de construção tem seu programa e sua lista de checks; o arquivo atual tem a etapa 7. As etapas anteriores estão no histórico do git, um commit por etapa.
+- **`genius_tb`** é o jogador: olha os LEDs enquanto o jogo mostra a sequência e aperta as setas certas.
+  - Jogo 1 (fácil, rápido, Siga): vence as 8 rodadas, placar 16.
+  - Jogo 2 (PARTIDA): erra na rodada 1 e perde, placar 0.
+  - Confere que REPETE toca o jogo 2 e MAIS LONGO toca o jogo 1 (o recorde).
+- **Montador:** `rvasm.py` reproduz todos os `stageN.hex` feitos à mão. Um programa com rótulos, pseudo-instruções e `.data` deu os mesmos registradores no Ripes e no processador.
+
+**Não coberto ainda:** modo Mando eu, derrota por tempo (5 s), dificuldades média e difícil, velocidade lenta, instruções fora do Genius e acesso desalinhado.
+
+### Como montar um programa
+
+```bash
+python3 sw/rvasm.py sw/genius.s     # gera sw/genius.hex e sw/genius_data.hex
+```
+
+Rode de novo sempre que mudar o `.s`: a simulação e a síntese leem os `.hex`. O layout é o mesmo do Ripes: `.text` em `0x0`, `.data` em `0x10000000`, e os símbolos `D_PAD_0_BASE`, `LED_MATRIX_0_BASE` e `SWITCHES_0_BASE` já são conhecidos. Pseudo-instruções aceitas: `li la mv j ret nop not beqz bnez bltz bgez ble`.
+
+### Síntese
+
+Topo `riscv_top`, constraint `constrs/riscv_timing.xdc`, FPGA `xc7z010iclg225-1L`. Resultado (Vivado 2026.1):
+
+| | |
+|---|---|
+| Erros / critical warnings | 0 / 0 |
+| LUTs | 1557 de 17600 (560 como memória: `regfile` e `dmem`) |
+| Flip-flops | 182 (PC, cores dos 4 LEDs, sincronizadores) |
+| Block RAM | 0 (as memórias têm leitura combinacional e viram LUTRAM) |
+| Timing a 50 MHz | atende, folga de 4,7 ns |
+| Timing a 100 MHz | não atende (WNS −5,3 ns) |
+
+O caminho crítico é o do ciclo único: `pc → imem → regfile → ALU → dmem → regfile`, com cerca de 15 ns depois da síntese. Os 89 avisos são todos `Port addr[...] has no load`: bits de endereço que as memórias não usam.
+
+### Limitações e próximos passos
+
+- **Placa:** não há arquivo de pinos (`.xdc` com `PACKAGE_PIN`/`IOSTANDARD`); falta escolher a placa.
+- **Atrasos do jogo:** o `delay` e o tempo limite de 5 s contam voltas de laço calibradas para o Ripes. A 50 MHz, um "passo de 250 ms" dura cerca de 0,5 ms; para jogar de verdade, as constantes `12500` e `25000` do `genius.s` precisam ser recalculadas para o clock.
+- **Debounce:** os botões têm sincronizador, mas não filtro de repique; em placa, um repique pode virar um aperto falso.
+- **Placar:** os `ecall` foram removidos; o placar fica em `s3`, mas não é mostrado.
+- **Registradores** não têm reset (só o PC tem); o programa escreve cada registrador antes de usá-lo.
+- **Pipeline:** não feito.
+
+---
+
+# Template de verificação (exemplo UVM do somador)
+
+Texto original do template, mantido como referência para a verificação.
+
 Simple adder module for demonstration purposes.
 
-## Implementation Status
+### Implementation Status
 
 - [x] Conception
 - [x] Microarchitecture
@@ -11,7 +149,7 @@ Simple adder module for demonstration purposes.
 - [ ] Functional Verification
 - [ ] RTL signoff 
 
-## Verification Template Overview
+### Verification Template Overview
 
 The verification template in this repository is designed to provide a modular and reusable environment for verifying RTL designs using the Universal Verification Methodology (UVM). It includes the following components:
 
@@ -52,7 +190,7 @@ The verification template in this repository is designed to provide a modular an
 
 This template is designed to streamline the verification process, promote reusability, and ensure thorough testing of the adder design.
 
-## How to run
+### How to run
 
 ### Step 1: Set up the environment
 Before running the simulation, you must source the required Xilinx tools (Vivado or Vitis). This injects the EDA toolpaths into your current terminal instance.
@@ -205,7 +343,7 @@ $ make clean
 | `--vivado` | `--R` | Passes arbitrary flags natively to the simulation engine. (Setting `--g` turns on GUI mode) |
 
 
-## Important Information
+### Important Information
 
 1. **Tool Versions**:
    - Ensure you are using Vivado or Vitis version 2024.1 or later for compatibility with the scripts and UVM libraries.
@@ -230,6 +368,6 @@ $ make clean
 
 This section provides essential details to ensure smooth usage and extension of the verification template.
 
-## Install cmake
+### Install cmake
 sudo apt install cmake
 sudo apt install autoconf

@@ -1,6 +1,6 @@
 # genius.s - Genius game for the PBL03 RISC-V processor
 #
-# Copy of RISC-V/Genius.s (PBL02, Ripes) with two changes:
+# Copy of sw/pbl_1/Genius.s (PBL02, Ripes) with two changes:
 #   - the three ecall that printed the score on the Ripes console are gone;
 #     the score is still kept in s3
 #   - main sets sp itself, as the processor does not (Ripes does)
