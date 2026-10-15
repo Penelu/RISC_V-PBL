@@ -19,7 +19,8 @@
 module cpu
     import cpu_pkg::*;
 #(
-    parameter MEM_FILE = ""          // program loaded into the instruction memory
+    parameter MEM_FILE  = "",        // program loaded into the instruction memory
+    parameter DATA_FILE = ""         // initial data memory (.data), optional
 )(
     input  logic       clk,
     input  logic       reset,        // active-high, asynchronous
@@ -141,7 +142,7 @@ module cpu
 
     assign io_sel = (alu_y[31:28] == IO_REGION);
 
-    dmem u_dmem (
+    dmem #(.MEM_FILE(DATA_FILE)) u_dmem (
         .clk     (clk),
         .we      (mem_write && !io_sel),
         .byte_en (mem_byte),
